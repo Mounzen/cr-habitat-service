@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connexion — Service Habitat · Saint-Denis</title>
+<link rel="icon" href="favicon-192.png">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif}
+  :root{--navy:#0f1f3d;--violet:#5b3fce;--teal:#0d9488;--line:#2a3a5c;}
+  body{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;
+    background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(91,63,206,.35),transparent 60%),
+               radial-gradient(ellipse 60% 50% at 80% 90%,rgba(13,148,136,.25),transparent 55%),var(--navy);
+    color:#fff}
+  .card{width:100%;max-width:380px;background:rgba(15,31,61,.6);backdrop-filter:blur(12px);
+    border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:30px 26px;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+  img.logo{width:66px;height:66px;object-fit:contain;background:#fff;border-radius:14px;padding:5px;margin:0 auto 16px;display:block;box-shadow:0 6px 18px rgba(0,0,0,.25)}
+  h1{font-size:18px;font-weight:800}
+  .sub{font-size:12.5px;color:rgba(255,255,255,.55);margin:4px 0 22px}
+  label{display:block;text-align:left;font-size:12px;color:rgba(255,255,255,.6);margin:12px 0 5px}
+  input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.05);
+    color:#fff;font-size:15px;outline:none}
+  input:focus{border-color:var(--violet);box-shadow:0 0 0 3px rgba(91,63,206,.3)}
+  .btn{width:100%;margin-top:16px;padding:12px;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;
+    background:linear-gradient(135deg,var(--violet),var(--teal));color:#fff}
+  .btn:disabled{opacity:.5;cursor:default}
+  .msg{margin-top:14px;font-size:13px;min-height:18px}
+  .msg.err{color:#fca5a5}.msg.ok{color:#6ee7b7}
+  .step2{display:none}
+  .foot{margin-top:18px;font-size:11px;color:rgba(255,255,255,.35);line-height:1.5}
+  .link{background:none;border:none;color:rgba(255,255,255,.6);font-size:12px;cursor:pointer;text-decoration:underline;margin-top:10px}
+</style>
+</head>
+<body>
+  <div class="card">
+    <img class="logo" src="logo-ville.png" alt="Ville de Saint-Denis" onerror="this.style.display='none'">
+    <h1>Espace Numérique — Service Habitat</h1>
+    <div class="sub">Ville de Saint-Denis · accès réservé</div>
+
+    <div class="step1" id="step1">
+      <label for="email">Adresse e-mail professionnelle</label>
+      <input type="email" id="email" placeholder="prenom.nom@saint-denis.re" autocomplete="email">
+      <button class="btn" id="btnCode">Recevoir mon code</button>
+    </div>
+
+    <div class="step2" id="step2">
+      <label for="code">Code reçu par e-mail</label>
+      <input type="text" id="code" inputmode="numeric" placeholder="123456" autocomplete="one-time-code">
+      <button class="btn" id="btnValider">Valider</button>
+      <button class="link" id="btnRetour">← Changer d'adresse</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+    <div class="foot">Un code à usage unique vous est envoyé par e-mail. Seules les adresses autorisées peuvent se connecter.</div>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+// login.html BLINDÉ : les boutons sont câblés dès le chargement, quoi qu'il arrive.
+document.addEventListener('DOMContentLoaded', function () {
+  var SUPABASE_URL  = 'https://lypeksjzahbrbjhnvmsy.supabase.co';
+  var SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx5cGVrc2p6YWhicmJqaG52bXN5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE4NjQ3MDIsImV4cCI6MjA5NzQ0MDcwMn0.h8dgG4V_BgdYhoduaol_NIcJvqVsD5BNe0bxNh-eI0g';
+  var $ = function (id) { return document.getElementById(id); };
+  function msg(t, c) { var m = $('msg'); if (m) { m.textContent = t || ''; m.className = 'msg ' + (c || ''); } }
+
+  var client = null;
+  try {
+    client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false } });
+  } catch (e) { console.error('createClient', e); }
+
+  // Déjà connecté ? → aller à l'appli
+  if (client) {
+    client.auth.getSession().then(function (res) { if (res && res.data && res.data.session) location.href = 'index.html'; });
+  }
+
+  $('btnCode').addEventListener('click', async function () {
+    var email = ($('email').value || '').trim();
+    if (!email) { msg('Saisissez votre adresse.', 'err'); return; }
+    if (!client) { msg('Librairie non chargée. Rechargez la page.', 'err'); return; }
+    $('btnCode').disabled = true; msg('Envoi du code…');
+    var r = await client.auth.signInWithOtp({ email: email.toLowerCase(), options: { shouldCreateUser: true } });
+    $('btnCode').disabled = false;
+    if (!r.error) { $('step1').style.display = 'none'; $('step2').style.display = 'block'; msg('Code envoyé à ' + email + '.', 'ok'); $('code').focus(); }
+    else msg(r.error.message || 'Envoi impossible.', 'err');
+  });
+
+  $('btnValider').addEventListener('click', async function () {
+    var email = ($('email').value || '').trim(), code = ($('code').value || '').trim();
+    if (!code) { msg('Saisissez le code reçu.', 'err'); return; }
+    if (!client) { msg('Librairie non chargée.', 'err'); return; }
+    $('btnValider').disabled = true; msg('Vérification…');
+    var r = await client.auth.verifyOtp({ email: email.toLowerCase(), token: code, type: 'email' });
+    $('btnValider').disabled = false;
+    if (!r.error) location.href = 'index.html';
+    else msg(r.error.message || 'Code invalide ou expiré.', 'err');
+  });
+
+  $('btnRetour').addEventListener('click', function () { $('step2').style.display = 'none'; $('step1').style.display = 'block'; msg(''); });
+  $('email').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btnCode').click(); });
+  $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('btnValider').click(); });
+});
+</script>
+</body>
+</html>
